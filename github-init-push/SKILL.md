@@ -1,11 +1,11 @@
 ---
 name: github-init-push
-description: "GitHub 仓库初始化与推送自动化：包括 SSH 密钥生成、远程仓库创建、本地 Git 初始化、.gitignore 配置、分支设置（main + dev）与代码推送。适用于新建项目推送到 GitHub 仓库。"
+description: "GitHub 仓库初始化与推送自动化：包括 SSH 密钥生成、本地 Git 初始化、.gitignore 配置、分支设置（main + dev）与代码推送。用户手动在 GitHub 网站创建仓库，本技能负责本地配置和推送。"
 ---
 
 # GitHub 仓库初始化与推送技能
 
-一键将本地项目推送到 GitHub 个人仓库，自动完成 SSH 密钥配置、仓库创建、分支初始化等所有必要步骤。
+将本地项目推送到 GitHub 个人仓库的完整流程，自动完成 SSH 密钥配置、Git 初始化、分支设置等步骤。用户需要在 GitHub 网站手动创建仓库。
 
 ## When to Use This Skill
 
@@ -20,14 +20,16 @@ description: "GitHub 仓库初始化与推送自动化：包括 SSH 密钥生成
 
 本技能不会：
 - 修改项目源代码
-- 处理 GitHub API 的高级功能（如 Webhook、Actions 等）
+- 自动创建 GitHub 仓库（用户需手动在网站创建）
 - 推送现有 Git 仓库（仅处理未初始化的项目）
-- 处理私有仓库的复杂权限配置
+- 处理 GitHub API 的高级功能（如 Webhook、Actions 等）
+- 使用 gh CLI 或其他 GitHub API 工具
 
 必需输入：
 - 项目名称（如 `aaa-bbb`）
 - GitHub 用户名（如 `yourGitHubName`）
 - GitHub 邮箱（如 `yourGitHubMail@xx.com`）
+- 项目路径（如 `/home/user/projects/aaa-bbb`）
 
 ## Quick Reference
 
@@ -35,32 +37,38 @@ description: "GitHub 仓库初始化与推送自动化：包括 SSH 密钥生成
 
 **步骤 1：检查 SSH 密钥是否存在**
 ```bash
-# Windows
-ls $env:USERPROFILE\.ssh\id_rsa.pub 2>$null
+# Windows (PowerShell)
+Test-Path $env:USERPROFILE\.ssh\id_ed25519.pub
 
-# Linux/Mac
-ls ~/.ssh/id_rsa.pub 2>/dev/null
+# Linux/Mac/Git Bash
+[ -f ~/.ssh/id_ed25519.pub ] && echo "Exists" || echo "Not found"
 ```
 
 **步骤 2：生成 SSH 密钥（如不存在）**
 ```bash
-# Windows
+# Windows (PowerShell)
 ssh-keygen -t ed25519 -C "your_email@example.com" -f $env:USERPROFILE\.ssh\id_ed25519 -N ""
 
-# Linux/Mac
+# Linux/Mac/Git Bash
 ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/id_ed25519 -N ""
 ```
 
-**步骤 3：显示公钥内容（用于添加到 GitHub）**
+**步骤 3：显示公钥内容**
 ```bash
-# Windows
+# Windows (PowerShell)
 cat $env:USERPROFILE\.ssh\id_ed25519.pub
 
-# Linux/Mac
+# Linux/Mac/Git Bash
 cat ~/.ssh/id_ed25519.pub
 ```
 
-**步骤 4：初始化 Git 仓库**
+**步骤 4：测试 SSH 连接**
+```bash
+ssh -T git@github.com
+# 预期输出：Hi username! You've successfully authenticated...
+```
+
+**步骤 5：初始化 Git 仓库**
 ```bash
 cd /path/to/your/project
 git init
@@ -68,12 +76,12 @@ git config user.name "your-username"
 git config user.email "your-email@example.com"
 ```
 
-**步骤 5：创建 .gitignore 文件**
+**步骤 6：创建 .gitignore 文件**
 ```bash
-# 创建通用 .gitignore（参考下方完整模板）
+# 根据项目类型选择合适的模板（见下方完整模板）
 ```
 
-**步骤 6：创建并推送 main 分支**
+**步骤 7：创建并推送 main 分支**
 ```bash
 git add .
 git commit -m "Initial commit"
@@ -82,17 +90,10 @@ git remote add origin git@github.com:username/repo-name.git
 git push -u origin main
 ```
 
-**步骤 7：创建并推送 dev 分支**
+**步骤 8：创建并推送 dev 分支**
 ```bash
 git checkout -b dev
 git push -u origin dev
-```
-
-**步骤 8：在 GitHub 上合并 dev 到 main（可选）**
-```bash
-# 通过 GitHub UI 或使用 gh CLI：
-gh pr create --base main --head dev --title "Merge dev to main" --body "Initial setup"
-gh pr merge
 ```
 
 ### 常用命令
@@ -118,102 +119,133 @@ git remote remove origin
 git remote add origin git@github.com:username/repo-name.git
 ```
 
+**切换分支**
+```bash
+git checkout main    # 切换到 main 分支
+git checkout dev     # 切换到 dev 分支
+```
+
 ## 完整执行流程
 
-### 阶段 1：SSH 密钥配置（唯一需要人工干预的步骤）
+### 阶段 1：SSH 密钥配置
 
 1. **检查 SSH 密钥是否存在**
    ```bash
-   # Windows
+   # Windows (PowerShell)
    Test-Path $env:USERPROFILE\.ssh\id_ed25519.pub
 
-   # Linux/Mac
-   [ -f ~/.ssh/id_ed25519.pub ] && echo "Exists" || echo "Not found"
+   # Linux/Mac/Git Bash
+   ls ~/.ssh/id_ed25519.pub 2>/dev/null && echo "Exists" || echo "Not found"
    ```
 
 2. **生成 SSH 密钥（如不存在）**
    ```bash
    # 使用 ed25519 算法（推荐）
    ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/id_ed25519 -N ""
+
+   # 或使用 RSA 4096 位
+   ssh-keygen -t rsa -b 4096 -C "your_email@example.com" -f ~/.ssh/id_rsa -N ""
    ```
 
 3. **启动 SSH 代理并添加密钥**
    ```bash
-   # Windows
+   # Windows (PowerShell)
    Start-Service ssh-agent
    ssh-add $env:USERPROFILE\.ssh\id_ed25519
 
-   # Linux/Mac
+   # Linux/Mac/Git Bash
    eval "$(ssh-agent -s)"
    ssh-add ~/.ssh/id_ed25519
    ```
 
-4. **显示公钥并等待用户配置**
+4. **显示公钥内容**
    ```bash
+   # Windows
+   cat $env:USERPROFILE\.ssh\id_ed25519.pub
+
+   # Linux/Mac
    cat ~/.ssh/id_ed25519.pub
    ```
-   ⚠️ **在此暂停，等待用户完成以下操作：**
-   - 复制显示的公钥
-   - 访问 https://github.com/settings/keys
-   - 点击 "New SSH key"
-   - 粘贴公钥并保存
-   - 确认后继续执行
 
-5. **测试 SSH 连接**
+5. **🛑 询问检查点 1：SSH 公钥配置**
+
+   ⚠️ **询问用户：**
+   ```
+   你的 SSH 公钥已生成（如上所示）。
+
+   请确认是否已在 GitHub 添加此公钥：
+
+   操作步骤：
+   1. 访问：https://github.com/settings/keys
+   2. 点击 "New SSH key"
+   3. Title 输入：项目名称（如 "aaa-bbb"）
+   4. Key 粘贴上面显示的公钥（整行内容）
+   5. 点击 "Add SSH key"
+
+   请回复：
+   - "已添加"：如果你已完成配置
+   - "未完成"：如果需要更多时间
+   ```
+
+6. **测试 SSH 连接**
    ```bash
    ssh -T git@github.com
-   # 预期输出：Hi username! You've successfully authenticated...
+   # 预期输出：Hi username! You've successfully authenticated, but GitHub does not provide shell access.
    ```
 
-### 阶段 2：GitHub 仓库创建（使用 gh CLI）
+### 阶段 2：本地 Git 初始化
 
-1. **检查 gh CLI 是否已安装**
+1. **进入项目目录**
    ```bash
-   gh --version
-   # 如未安装，提示用户访问 https://cli.github.com/
+   cd /path/to/your/project
    ```
 
-2. **登录 GitHub（如未登录）**
+2. **初始化 Git 仓库**
    ```bash
-   gh auth login
-   # 选择：GitHub.com -> SSH -> Yes (上传 ssh key) -> Login with a web browser
-   ```
-
-3. **创建新仓库**
-   ```bash
-   gh repo create repo-name --public --source=. --remote=origin --push
-   ```
-
-### 阶段 3：本地 Git 初始化
-
-1. **初始化 Git 仓库**
-   ```bash
-   cd /path/to/project
    git init
    ```
 
-2. **配置 Git 用户信息**
+3. **配置 Git 用户信息**
    ```bash
    git config user.name "your-username"
    git config user.email "your-email@example.com"
    ```
 
-3. **创建 .gitignore 文件**（见下方模板）
+4. **创建 .gitignore 文件**（根据项目类型选择下方模板）
    ```bash
-   # 创建智能 .gitignore，根据项目类型自动调整
+   # 创建适合项目类型的 .gitignore 文件
    ```
 
-4. **首次提交**
+5. **首次提交**
    ```bash
    git add .
    git commit -m "Initial commit: Project setup"
    ```
 
-### 阶段 4：分支设置与推送
-
-1. **重命名为 main 分支**
+6. **重命名为 main 分支**
    ```bash
    git branch -M main
+   ```
+
+### 阶段 3：GitHub 仓库创建（用户手动操作）
+
+1. **🛑 询问检查点 2：创建 GitHub 仓库**
+
+   ⚠️ **询问用户：**
+   ```
+   现在需要在 GitHub 上创建仓库。
+
+   请按以下步骤操作：
+
+   1. 访问：https://github.com/new
+   2. Repository name 输入：[项目名称]
+   3. 选择 Public 或 Private
+   4. ❌ 不要勾选 "Add a README file"（我们已经有了）
+   5. ❌ 不要勾选 "Add .gitignore"（我们已经创建）
+   6. ❌ 不要选择 "Choose a license"（可后续添加）
+   7. 点击 "Create repository"
+
+   创建完成后，请回复 "已创建"。
    ```
 
 2. **添加远程仓库**
@@ -221,24 +253,34 @@ git remote add origin git@github.com:username/repo-name.git
    git remote add origin git@github.com:username/repo-name.git
    ```
 
-3. **推送 main 分支**
+3. **验证远程仓库**
+   ```bash
+   git remote -v
+   # 应显示：
+   # origin  git@github.com:username/repo-name.git (fetch)
+   # origin  git@github.com:username/repo-name.git (push)
+   ```
+
+### 阶段 4：分支设置与推送
+
+1. **推送 main 分支**
    ```bash
    git push -u origin main
    ```
 
-4. **创建 dev 分支**
+2. **创建 dev 分支**
    ```bash
    git checkout -b dev
    ```
 
-5. **推送 dev 分支**
+3. **推送 dev 分支**
    ```bash
    git push -u origin dev
    ```
 
-6. **（可选）在 GitHub 上设置默认分支**
+4. **切换回 main 分支**
    ```bash
-   gh repo edit --default-branch main
+   git checkout main
    ```
 
 ### 阶段 5：验证
@@ -246,17 +288,27 @@ git remote add origin git@github.com:username/repo-name.git
 1. **验证远程分支**
    ```bash
    git branch -r
-   # 应显示：origin/main 和 origin/dev
+   # 应显示：
+   # origin/main
+   # origin/dev
    ```
 
-2. **验证本地分支追踪**
+2. **验证本地分支**
+   ```bash
+   git branch
+   # 应显示：
+   # * main
+   #   dev
+   ```
+
+3. **验证分支追踪关系**
    ```bash
    git branch -vv
    # 应显示 main 和 dev 的追踪关系
    ```
 
-3. **验证 GitHub 仓库**
-   - 访问 https://github.com/username/repo-name
+4. **验证 GitHub 仓库**
+   - 访问：https://github.com/username/repo-name
    - 确认 main 和 dev 分支都存在
    - 确认代码已正确推送
 
@@ -567,15 +619,16 @@ lombok.config
 **步骤：**
 
 1. 检查并生成 SSH 密钥
-2. 等待用户在 GitHub 上添加公钥
-3. 创建 Python 专用 .gitignore
-4. 初始化 Git 并提交
-5. 使用 gh CLI 创建 GitHub 仓库
-6. 推送 main 和 dev 分支
+2. **询问检查点 1**：等待用户在 GitHub 添加公钥
+3. 测试 SSH 连接
+4. 创建 Python 专用 .gitignore
+5. 初始化 Git 并提交
+6. **询问检查点 2**：等待用户在 GitHub 创建仓库
+7. 推送 main 和 dev 分支
 
 **预期输出：**
 - 本地有 main 和 dev 分支
-- GitHub 有 `yourGitHubName/aaa-bbb` 公开仓库
+- GitHub 有 `yourGitHubName/aaa-bbb` 仓库
 - 仓库包含 main 和 dev 分支
 - .gitignore 正确配置
 - 所有代码已推送
@@ -584,17 +637,18 @@ lombok.config
 
 **输入：**
 - 项目名称：`my-web-app`
-- GitHub 用户名：`johndoe`
-- 邮箱：`john@example.com`
+- GitHub 用户名：`yourGitHubName`
+- 邮箱：`yourGitHubMail@xx.com`
 - 项目类型：Node.js 项目
 
 **步骤：**
 
 1. 检查 SSH 密钥（已存在，跳过生成）
-2. 创建 Node.js 专用 .gitignore
-3. 初始化 Git 并提交
-4. 创建 GitHub 仓库
-5. 推送分支
+2. **询问检查点 1**：确认公钥已配置
+3. 创建 Node.js 专用 .gitignore
+4. 初始化 Git 并提交
+5. **询问检查点 2**：等待用户创建仓库
+6. 推送分支
 
 **预期输出：**
 - Git 仓库已初始化
@@ -602,26 +656,27 @@ lombok.config
 - main 和 dev 分支已推送
 - 可通过 `git status` 确认干净的工作目录
 
-### Example 3：多语言混合项目
+### Example 3：Java 项目推送到 GitHub
 
 **输入：**
-- 项目名称：`fullstack-app`
-- GitHub 用户名：`developer`
-- 邮箱：`dev@example.com`
-- 项目类型：前端 (Node.js) + 后端 (Python)
+- 项目名称：`spring-boot-app`
+- GitHub 用户名：`yourGitHubName`
+- 邮箱：`yourGitHubMail@xx.com`
+- 项目类型：Java/Maven 项目
 
 **步骤：**
 
 1. 生成 SSH 密钥
-2. 等待用户配置 GitHub
-3. 创建组合型 .gitignore（Python + Node.js）
-4. 分别忽略 `frontend/node_modules/` 和 `backend/.venv/`
-5. 初始化并推送
+2. **询问检查点 1**：等待用户配置公钥
+3. 创建 Java 专用 .gitignore
+4. 初始化 Git 并提交
+5. **询问检查点 2**：等待用户创建仓库
+6. 推送分支
 
 **预期输出：**
-- 单一仓库包含前后端代码
-- 两个目录的依赖都被正确忽略
-- 分支结构清晰
+- target/ 目录已被忽略
+- Maven 配置文件正确处理
+- main 和 dev 分支已推送
 
 ## 常见问题排查
 
@@ -648,23 +703,22 @@ ssh -T git@github.com
 
 **解决方案：**
 ```bash
-# 方案 1：强制推送（谨慎使用）
+# 方案 1：强制推送（谨慎使用，仅首次推送时）
 git push -f origin main
 
-# 方案 2：先拉取再推送
+# 方案 2：先拉取再推送（如仓库已有内容）
 git pull origin main --allow-unrelated-histories
 git push origin main
 ```
 
-### 问题 3：gh CLI 未登录
+### 问题 3：仓库不存在
 
-**错误：** `gh not logged in`
+**错误：** `ERROR: Repository not found.`
 
 **解决方案：**
-```bash
-gh auth login
-# 按提示选择 GitHub.com -> SSH -> 浏览器登录
-```
+- 确认已在 GitHub 网站创建仓库
+- 确认仓库名称拼写正确
+- 确认你有该仓库的推送权限
 
 ### 问题 4：.gitignore 不生效
 
@@ -677,6 +731,8 @@ git rm -r --cached .
 
 # 重新添加
 git add .
+
+# 提交
 git commit -m "Update .gitignore"
 ```
 
@@ -690,7 +746,7 @@ git commit -m "Update .gitignore"
 2. **分支策略**
    - main：生产环境代码
    - dev：开发环境代码
-   - 建议使用 PR 合并 dev → main
+   - 建议通过 PR 合并 dev → main
 
 3. **首次提交**
    - 确保 .gitignore 正确配置
@@ -700,11 +756,16 @@ git commit -m "Update .gitignore"
 4. **仓库可见性**
    - 公开仓库：任何人可见
    - 私有仓库：仅你和授权用户可见
-   - 创建后可修改设置
+   - 创建后可在 GitHub 设置中修改
+
+5. **询问检查点**
+   - 本技能包含两个询问检查点
+   - 确保用户完成手动操作后再继续
+   - 提供清晰的操作指导
 
 ## References
 
-- `references/github-cli.md`: GitHub CLI 完整文档
+- `references/github-cli.md`: GitHub CLI 完整文档（可选参考）
 - `references/git-workflow.md`: Git 工作流最佳实践
 - `references/ssh-keys.md`: SSH 密钥管理指南
 
@@ -712,4 +773,4 @@ git commit -m "Update .gitignore"
 
 - Sources: GitHub 官方文档, Git 官方文档
 - Last updated: 2025-01-19
-- Known limits: 需要安装 gh CLI 和 Git
+- Known limits: 需要用户手动在 GitHub 网站创建仓库和配置 SSH 密钥
